@@ -128,13 +128,13 @@ function showOtpError(msg) {
 // ── Telegram Login через официальный SDK ────────────────────────────
 function openTelegramPopup(returnUrl) {
     if (typeof Telegram === 'undefined' || !Telegram.Login) {
-        showAuthError('Telegram SDK не загружен. Проверьте соединение.');
+        setTimeout(() => openTelegramPopup(returnUrl), 200);
         return;
     }
 
     Telegram.Login.auth(
         {
-            client_id: window.TELEGRAM_CLIENT_ID,
+            client_id: parseInt(window.TELEGRAM_CLIENT_ID),
             lang: 'ru',
             request_access: ['write']
         },
