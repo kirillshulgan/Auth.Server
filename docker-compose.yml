@@ -1,0 +1,57 @@
+services:
+
+  auth-postgres:
+    image: postgres:16-alpine
+    container_name: auth_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+    networks:
+      - auth-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: auth_server
+    restart: unless-stopped
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Default: "Host=auth-postgres;Port=5432;Database=${DB_NAME};Username=${DB_USERNAME};Password=${DB_PASSWORD}"
+      Smtp__Host: ${SMTP_HOST}
+      Smtp__Port: ${SMTP_PORT}
+      Smtp__User: ${SMTP_USER}
+      Smtp__Password: ${SMTP_PASSWORD}
+      Smtp__From: ${SMTP_FROM}
+      Smtp__FromName: "Shulgan Auth"
+      Smtp__EnableSsl: "true"
+      Auth__Telegram__ClientId: ${TELEGRAM_CLIENT_ID}
+      Auth__Telegram__ClientSecret: ${TELEGRAM_CLIENT_SECRET}
+      Auth__Telegram__BotUsername: ${TELEGRAM_BOT_USERNAME}
+    networks:
+      - auth-internal
+      - proxied
+    expose:
+      - "8080"
+
+networks:
+  auth-internal:
+    driver: bridge
+  proxied:
+    external: true
+
+volumes:
+  auth_postgres_data:
