@@ -178,6 +178,12 @@
     </div>
 </div>
 
+<script>
+    window.TELEGRAM_CLIENT_ID = @(Html.Raw(
+        System.Text.Json.JsonSerializer.Serialize(
+            Model.TelegramClientId)));
+</script>
+
 @section Scripts {
     <script src="~/js/auth.js"></script>
 }

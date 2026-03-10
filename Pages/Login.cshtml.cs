@@ -12,21 +12,25 @@ public class LoginModel : PageModel
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IDistributedCache _cache;
+    private readonly IConfiguration _configuration;
 
     public string? ReturnUrl { get; set; }
     public string? AppName { get; set; }
     public string? Error { get; set; }
     public string? Username { get; set; }
     public string ActiveTab { get; set; } = "password";
+    public string TelegramClientId { get; set; } = "";
 
     public LoginModel(
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
-        IDistributedCache cache)
+        IDistributedCache cache,
+        IConfiguration configuration)
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _cache = cache;
+        _configuration = configuration;
     }
 
     public void OnGet(string? returnUrl, string? error, string? tab)
@@ -34,6 +38,7 @@ public class LoginModel : PageModel
         ReturnUrl = returnUrl ?? "/";
         Error = error;
         ActiveTab = tab ?? "password";
+        TelegramClientId = _configuration["Auth:Telegram:ClientId"] ?? "";
     }
 
     // ── Логин по паролю ──────────────────────────────────────────────

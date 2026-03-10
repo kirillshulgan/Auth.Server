@@ -125,56 +125,47 @@ function showOtpError(msg) {
     err.textContent = msg;
 }
 
-// ── Telegram Login через Popup ──────────────────────────────────────
+// ── Telegram Login через официальный SDK ────────────────────────────
 function openTelegramPopup(returnUrl) {
-    const width = 480;
-    const height = 640;
-    const left = (window.screen.width - width) / 2;
-    const top = (window.screen.height - height) / 2;
-
-    const popup = window.open(
-        `/connect/social/telegram?returnUrl=${encodeURIComponent(returnUrl || '/')}`,
-        'telegram-auth',
-        `width=${width},height=${height},left=${left},top=${top},` +
-        `toolbar=no,menubar=no,scrollbars=yes,resizable=no`
-    );
-
-    if (!popup) {
-        showAuthError('Разрешите всплывающие окна для этого сайта и попробуйте снова.');
+    if (typeof Telegram === 'undefined' || !Telegram.Login) {
+        showAuthError('Telegram SDK не загружен. Проверьте соединение.');
         return;
     }
 
-    let handled = false;
+    Telegram.Login.auth(
+        {
+            client_id: window.TELEGRAM_CLIENT_ID,
+            lang: 'ru',
+            request_access: ['write']
+        },
+        async (data) => {
+            if (!data || data.error) {
+                showAuthError(data?.error || 'Вход отменён.');
+                return;
+            }
 
-    const handler = (event) => {
-        if (event.origin !== window.location.origin) return;
-        if (!event.data || event.data.type !== 'telegram-auth') return;
+            try {
+                const res = await fetch('/connect/social/telegram/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        idToken: data.id_token,
+                        returnUrl: returnUrl || '/'
+                    })
+                });
 
-        handled = true;
-        window.removeEventListener('message', handler);
-        clearInterval(pollClosed);
+                const result = await res.json();
 
-        if (event.data.status === 'success') {
-            window.location.href = event.data.payload || '/';
-        } else {
-            showAuthError(event.data.payload || 'Ошибка входа через Telegram.');
-        }
-    };
-
-    window.addEventListener('message', handler);
-
-    // Следим за закрытием — только чистим интервал, handler НЕ удаляем
-    const pollClosed = setInterval(() => {
-        if (popup.closed) {
-            clearInterval(pollClosed);
-            // Даём 300мс на обработку postMessage если он ещё не пришёл
-            if (!handled) {
-                setTimeout(() => {
-                    if (!handled) window.removeEventListener('message', handler);
-                }, 300);
+                if (res.ok && result.redirectUrl) {
+                    window.location.href = result.redirectUrl;
+                } else {
+                    showAuthError(result.error || 'Ошибка входа.');
+                }
+            } catch {
+                showAuthError('Сервер недоступен. Попробуйте позже.');
             }
         }
-    }, 500);
+    );
 }
 
 function showAuthError(msg) {
