@@ -126,9 +126,15 @@ function showOtpError(msg) {
 }
 
 // ── Telegram Login через официальный SDK ────────────────────────────
-function openTelegramPopup(returnUrl) {
+function openTelegramPopup(returnUrl, _attempt) {
+    _attempt = _attempt || 0;
+
     if (typeof Telegram === 'undefined' || !Telegram.Login) {
-        setTimeout(() => openTelegramPopup(returnUrl), 200);
+        if (_attempt > 10) {
+            showAuthError('Telegram SDK не загружен. Проверьте соединение.');
+            return;
+        }
+        setTimeout(() => openTelegramPopup(returnUrl, _attempt + 1), 200);
         return;
     }
 
@@ -140,7 +146,9 @@ function openTelegramPopup(returnUrl) {
         },
         async (data) => {
             if (!data || data.error) {
-                showAuthError(data?.error || 'Вход отменён.');
+                if (data?.error !== 'popup_closed') {
+                    showAuthError(data?.error || 'Вход отменён.');
+                }
                 return;
             }
 
@@ -167,6 +175,7 @@ function openTelegramPopup(returnUrl) {
         }
     );
 }
+
 
 function showAuthError(msg) {
     let err = document.getElementById('auth-error-msg');
