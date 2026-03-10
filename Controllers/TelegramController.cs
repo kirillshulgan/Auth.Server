@@ -89,6 +89,7 @@ public class TelegramController : ControllerBase
                 UserName = userName,
                 DisplayName = name,
                 TelegramId = telegramId,
+                Email = $"tg_{telegramId}@telegram.local",
                 EmailConfirmed = false,
                 CreatedAt = DateTime.UtcNow
             };
