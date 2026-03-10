@@ -3,13 +3,33 @@ using Auth.Server.Infrastructure;
 using Auth.Server.Models;
 using Auth.Server.Services;
 using Auth.Server.Workers;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
 using Scalar.AspNetCore;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
+
+static Task WritePopupHtml(HttpResponse response, string status, string payload)
+{
+    var escaped = System.Text.Json.JsonSerializer.Serialize(payload);
+    var html = $$"""
+        <!DOCTYPE html><html><body>
+        <script>
+            window.opener?.postMessage(
+                { type: 'telegram-auth', status: '{{status}}', payload: {{escaped}} },
+                window.location.origin
+            );
+            window.close();
+        </script>
+        </body></html>
+        """;
+    response.ContentType = "text/html";
+    return response.WriteAsync(html);
+}
 
 // ╔══════════════════════════════════════════╗
 // ║           БАЗА ДАННЫХ                    ║
@@ -43,13 +63,17 @@ builder.Services.AddAuthentication()
         options.Authority = "https://oauth.telegram.org";
         options.ClientId = builder.Configuration["Auth:Telegram:ClientId"]!;
         options.ClientSecret = builder.Configuration["Auth:Telegram:ClientSecret"]!;
+
         options.ResponseType = "code";
         options.UsePkce = true;
+
         options.Scope.Clear();
         options.Scope.Add("openid");
         options.Scope.Add("profile");
-        options.CallbackPath = "/connect/social/telegram/callback";
+
         options.GetClaimsFromUserInfoEndpoint = false;
+        options.CallbackPath = "/connect/social/telegram/callback";
+        
         options.SaveTokens = false;
 
         options.Events = new OpenIdConnectEvents
@@ -85,6 +109,59 @@ builder.Services.AddAuthentication()
                 context.Response.WriteAsync(html);
                 context.HandleResponse();
                 return Task.CompletedTask;
+            },
+
+            OnTicketReceived = async context =>
+            {
+                var claims = context.Principal!.Claims.ToList();
+
+                var telegramId = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+                var displayName = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+                var username = claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value;
+
+                if (telegramId is null)
+                {
+                    context.HandleResponse();
+                    await WritePopupHtml(context.Response, "error", "Не удалось получить Telegram ID.");
+                    return;
+                }
+
+                var userManager = context.HttpContext.RequestServices
+                    .GetRequiredService<UserManager<ApplicationUser>>();
+                var signInManager = context.HttpContext.RequestServices
+                    .GetRequiredService<SignInManager<ApplicationUser>>();
+
+                // Ищем по TelegramId
+                var user = await userManager.Users
+                    .FirstOrDefaultAsync(u => u.TelegramId == telegramId);
+
+                // Создаём если нет
+                if (user is null)
+                {
+                    user = new ApplicationUser
+                    {
+                        UserName = username ?? $"tg_{telegramId}",
+                        DisplayName = displayName,
+                        TelegramId = telegramId,
+                        EmailConfirmed = false,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    var result = await userManager.CreateAsync(user);
+                    if (!result.Succeeded)
+                    {
+                        context.HandleResponse();
+                        await WritePopupHtml(context.Response, "error", "Не удалось создать аккаунт.");
+                        return;
+                    }
+                }
+
+                // Логиним
+                await signInManager.SignInAsync(user, isPersistent: false);
+
+                var returnUrl = context.Properties?.RedirectUri ?? "/";
+                context.HandleResponse();
+                await WritePopupHtml(context.Response, "success", returnUrl);
             }
         };
     });
