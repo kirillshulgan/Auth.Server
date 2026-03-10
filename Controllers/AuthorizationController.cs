@@ -356,6 +356,20 @@ public class AuthorizationController : ControllerBase
                 return StatusCode(503, new { error = "Не удалось отправить письмо. Попробуйте позже." });
             }
         }
+        else
+        {
+            try
+            {
+                await _emailService.SendOtpAsync(body.Email, code);
+            }
+            catch (Exception)
+            {
+                // Если SMTP упал — удаляем код из кэша чтобы можно было повторить
+                await _cache.RemoveAsync($"otp:{body.Email}");
+                await _cache.RemoveAsync(cooldownKey);
+                return StatusCode(503, new { error = "Не удалось отправить письмо. Попробуйте позже." });
+            }
+        }
 
         return Ok(new
         {
