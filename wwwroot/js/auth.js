@@ -140,35 +140,39 @@ function openTelegramPopup(returnUrl) {
     );
 
     if (!popup) {
-        // Браузер заблокировал popup
         showAuthError('Разрешите всплывающие окна для этого сайта и попробуйте снова.');
         return;
     }
 
-    // Слушаем postMessage от popup
+    let handled = false;
+
     const handler = (event) => {
-        // Проверяем что сообщение от нашего сайта
         if (event.origin !== window.location.origin) return;
         if (!event.data || event.data.type !== 'telegram-auth') return;
 
+        handled = true;
         window.removeEventListener('message', handler);
+        clearInterval(pollClosed);
 
         if (event.data.status === 'success') {
-            // Успех — редиректим на returnUrl
             window.location.href = event.data.payload || '/';
         } else {
-            // Ошибка — показываем сообщение
             showAuthError(event.data.payload || 'Ошибка входа через Telegram.');
         }
     };
 
     window.addEventListener('message', handler);
 
-    // Следим за закрытием popup (пользователь закрыл вручную)
+    // Следим за закрытием — только чистим интервал, handler НЕ удаляем
     const pollClosed = setInterval(() => {
         if (popup.closed) {
             clearInterval(pollClosed);
-            window.removeEventListener('message', handler);
+            // Даём 300мс на обработку postMessage если он ещё не пришёл
+            if (!handled) {
+                setTimeout(() => {
+                    if (!handled) window.removeEventListener('message', handler);
+                }, 300);
+            }
         }
     }, 500);
 }
