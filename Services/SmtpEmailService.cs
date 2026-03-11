@@ -28,6 +28,55 @@ public class SmtpEmailService : IEmailService
         await SendAsync(email, subject, body);
     }
 
+    public async Task SendConfirmAsync(string to, string username, string code)
+    {
+        var subject = "Подтвердите ваш email";
+        var body = $"""
+        <!DOCTYPE html>
+        <html lang="ru">
+        <head><meta charset="UTF-8"></head>
+        <body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,sans-serif">
+          <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px">
+            <tr><td align="center">
+              <table width="480" cellpadding="0" cellspacing="0"
+                     style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+                <tr>
+                  <td style="background:linear-gradient(135deg,#667eea,#764ba2);padding:32px;text-align:center">
+                    <h1 style="margin:0;color:#fff;font-size:22px">Подтверждение регистрации</h1>
+                    <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px">auth.shulgan-lab.ru</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:40px 32px;text-align:center">
+                    <p style="margin:0 0 8px;color:#374151;font-size:16px">
+                        Привет, <strong>{username}</strong>!
+                    </p>
+                    <p style="margin:0 0 24px;color:#6b7280;font-size:14px">
+                        Ваш код для подтверждения email:
+                    </p>
+                    <div style="background:#f3f4f6;border-radius:12px;padding:16px 32px;margin-bottom:24px;display:inline-block">
+                      <span style="font-size:36px;font-weight:800;letter-spacing:12px;color:#6366f1">{code}</span>
+                    </div>
+                    <p style="margin:0;color:#9ca3af;font-size:13px">
+                      Код действует 30 минут.
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background:#f9fafb;padding:20px;text-align:center;border-top:1px solid #e5e7eb">
+                    <p style="margin:0;color:#9ca3af;font-size:12px">© 2026 Shulgan Lab</p>
+                  </td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+        </body>
+        </html>
+        """;
+
+        await SendAsync(to, subject, body);
+    }
+
     // ───── Ядро отправки ─────────────────────────────────────────────
     private async Task SendAsync(string to, string subject, string htmlBody)
     {

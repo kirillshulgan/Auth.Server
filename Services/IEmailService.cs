@@ -7,4 +7,7 @@ public interface IEmailService
 
     /// <summary>Отправить приветственное письмо новому пользователю</summary>
     Task SendWelcomeAsync(string email, string displayName);
+
+    /// <summary>Отправить подтверждение новому пользователю</summary>
+    Task SendConfirmAsync(string to, string username, string code);
 }

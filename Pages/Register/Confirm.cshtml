@@ -1,0 +1,49 @@
+﻿@page
+@model Auth.Server.Pages.Register.ConfirmModel
+@{
+    Layout = "Shared/_Layout";
+    ViewData["Title"] = "Подтверждение email";
+}
+
+<div class="auth-container">
+    <div class="auth-card">
+
+        <div class="auth-logo" style="font-size:36px">📧</div>
+
+        <h1 class="auth-title">Подтвердите email</h1>
+        <p class="auth-subtitle">
+            Код отправлен на <strong>@Model.Email</strong>
+        </p>
+
+        @if (!string.IsNullOrEmpty(Model.Error))
+        {
+            <div class="auth-error"><span>⚠️</span> @Model.Error</div>
+        }
+
+        <form method="post">
+            <input type="hidden" name="email" value="@Model.Email" />
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+
+            <div class="field">
+                <label for="code">Код из письма</label>
+                <input type="text" id="code" name="code"
+                       placeholder="000000"
+                       maxlength="6"
+                       class="input-otp"
+                       autocomplete="one-time-code"
+                       inputmode="numeric"
+                       pattern="[0-9]{6}"
+                       value="@Model.DevCode"
+                       required autofocus />
+            </div>
+
+            <button type="submit" class="btn-primary">Подтвердить</button>
+        </form>
+
+        <p style="text-align:center;margin-top:16px;font-size:13px;color:#6b7280">
+            Не получили письмо?
+            <a href="/Register" style="color:#6366f1">Зарегистрироваться снова</a>
+        </p>
+
+    </div>
+</div>
